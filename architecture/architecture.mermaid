@@ -1,0 +1,56 @@
+%% ai_10022200118 — Obour Adomako Tawiah — CS4241 (2026)
+%% Academic City RAG architecture
+flowchart LR
+    %% ===== sources =====
+    subgraph SRC["Sources"]
+        CSV[(Ghana_Election_Result.csv)]
+        PDF[(2025 Budget Statement.pdf)]
+    end
+
+    %% ===== PART A: Data pipeline =====
+    subgraph A["Part A - Data Pipeline"]
+        CLEAN["clean_text() - normalise, strip PDF noise"]
+        ROW["row_chunker() - 1 row = 1 chunk"]
+        SENT["sentence_chunker() - 500w /80w overlap"]
+    end
+    CSV --> CLEAN --> ROW
+    PDF --> CLEAN --> SENT
+
+    %% ===== PART B: Index =====
+    subgraph B["Part B - Indexing"]
+        EMB["Embedder<br/>MiniLM-L6-v2 (384-d)"]
+        VSTORE["Custom VectorStore<br/>NumPy matrix + cosine"]
+        BM25["BM25 Index<br/>rank_bm25"]
+    end
+    ROW --> EMB
+    SENT --> EMB
+    EMB --> VSTORE
+    ROW --> BM25
+    SENT --> BM25
+
+    %% ===== Runtime flow =====
+    USER((User)) -->|query| UI[Streamlit UI]
+    UI --> PIPE[RAGPipeline.ask]
+    PIPE --> RET["HybridRetriever<br/>dense + sparse -> RRF"]
+    VSTORE -.-> RET
+    BM25 -.-> RET
+    RET --> DOMAIN["Domain Re-ranker<br/>+ feedback weights (Part G)"]
+    DOMAIN --> CHECK{score<br/>greater than 0.15?}
+    CHECK -- no --> REWRITE[Query rewrite + retry]
+    REWRITE --> RET
+    CHECK -- still low --> ABSTAIN[/Abstain response/]
+    CHECK -- yes --> PACK["pack_context()<br/>rank, filter, truncate"]
+    PACK --> PROMPT["build_prompt()<br/>guarded + CoT template"]
+    PROMPT --> LLM["LLM Client<br/>Groq Llama 3.3 70B"]
+    LLM --> ANSWER[Answer + citations]
+    ABSTAIN --> UI
+    ANSWER --> UI
+    UI -->|thumbs up / thumbs down| FB[Feedback Loop<br/>feedback.jsonl]
+    FB -.-> DOMAIN
+
+    %% ===== Logging =====
+    PIPE --> LOG[(logs/rag_pipeline.log)]
+    RET --> LOG
+    EMB --> LOG
+    PACK --> LOG
+    LLM --> LOG

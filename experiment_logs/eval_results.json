@@ -1,0 +1,86 @@
+[
+  {
+    "id": "gt_factual_1",
+    "type": "factual",
+    "query": "Which party contested the Ghana presidential election?",
+    "rag_answer": "I don't have enough information to answer that from the available sources.",
+    "pure_answer": "(LLM unavailable: GROQ_API_KEY is not set. Put it in .env or the Streamlit Cloud 'Secrets' panel.)",
+    "rag_abstained": true,
+    "rag_accuracy": false,
+    "pure_accuracy": false,
+    "rag_hallucination": 0.0,
+    "pure_hallucination": 1.0,
+    "rag_consistency": 0.0,
+    "pure_consistency": 0.0,
+    "retrieved_chunks": [
+      "election::row::554",
+      "election::row::519",
+      "election::row::524",
+      "election::row::463",
+      "election::row::427"
+    ]
+  },
+  {
+    "id": "gt_factual_2",
+    "type": "factual",
+    "query": "What is covered in the 2025 Budget Statement?",
+    "rag_answer": "I don't have enough information to answer that from the available sources.",
+    "pure_answer": "(LLM unavailable: GROQ_API_KEY is not set. Put it in .env or the Streamlit Cloud 'Secrets' panel.)",
+    "rag_abstained": true,
+    "rag_accuracy": false,
+    "pure_accuracy": false,
+    "rag_hallucination": 0.0,
+    "pure_hallucination": 1.0,
+    "rag_consistency": 0.0,
+    "pure_consistency": 0.0,
+    "retrieved_chunks": [
+      "budget_pdf::sent::00061",
+      "budget_pdf::sent::00000",
+      "budget_pdf::sent::00054",
+      "budget_pdf::sent::00044",
+      "budget_pdf::sent::00080"
+    ]
+  },
+  {
+    "id": "gt_adversarial_1",
+    "type": "adversarial_ambiguous",
+    "query": "Which party won the 2028 Ghana election?",
+    "rag_answer": "I don't have enough information to answer that from the available sources.",
+    "pure_answer": "(LLM unavailable: GROQ_API_KEY is not set. Put it in .env or the Streamlit Cloud 'Secrets' panel.)",
+    "rag_abstained": true,
+    "rag_accuracy": true,
+    "pure_accuracy": false,
+    "rag_hallucination": 0.0,
+    "pure_hallucination": 1.0,
+    "rag_consistency": 0.0,
+    "pure_consistency": 0.0,
+    "retrieved_chunks": [
+      "election::row::534",
+      "election::row::554",
+      "election::row::519",
+      "election::row::433",
+      "election::row::106"
+    ]
+  },
+  {
+    "id": "gt_adversarial_2",
+    "type": "adversarial_misleading",
+    "query": "How much did Ghana spend on moon landings in 2025?",
+    "rag_answer": "I don't have enough information to answer that from the available sources.",
+    "pure_answer": "(LLM unavailable: GROQ_API_KEY is not set. Put it in .env or the Streamlit Cloud 'Secrets' panel.)",
+    "rag_abstained": true,
+    "rag_accuracy": true,
+    "pure_accuracy": false,
+    "rag_hallucination": 0.0,
+    "pure_hallucination": 1.0,
+    "rag_consistency": 0.0,
+    "pure_consistency": 0.0,
+    "retrieved_chunks": [
+      "budget_pdf::sent::00131",
+      "budget_pdf::sent::00010",
+      "budget_pdf::sent::00091",
+      "budget_pdf::sent::00055",
+      "budget_pdf::sent::00081"
+    ]
+  }
+]

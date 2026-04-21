@@ -1,0 +1,29 @@
+# ai_10022200118 — Obour Adomako Tawiah — CS4241 RAG Assistant
+# Core numerical + data libraries
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.3
+
+# Embeddings (downloads MiniLM model on first run, ~90 MB)
+sentence-transformers>=2.7
+
+# PDF parsing
+pypdf>=4.0
+
+# BM25 for hybrid search (pure-Python, not a RAG framework)
+rank_bm25>=0.2
+
+# LLM client (OpenRouter — OpenAI-compatible, free Llama 3.3 70B available)
+openai>=1.40
+
+# UI
+streamlit>=1.30
+
+# Utility
+python-dotenv>=1.0
+requests>=2.31
+
+# NLP tokenisation for sentence-aware chunking
+nltk>=3.8
+
+# NOTE: No langchain, no llama_index, no haystack, no any RAG framework.

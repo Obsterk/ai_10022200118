@@ -1,0 +1,8 @@
+# Streamlit config — ai_10022200118 — Obour Adomako Tawiah
+[server]
+headless = true
+enableCORS = false
+
+[theme]
+base = "light"
+primaryColor = "#B00020"
