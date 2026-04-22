@@ -8,7 +8,10 @@ venv/
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
+!data/raw/Ghana_Election_Result.csv
+!data/raw/2025-Budget-Statement.pdf
 !data/processed/.gitkeep
+!data/processed/chunks.jsonl
 !data/sample/
 *.log
 .pytest_cache/
