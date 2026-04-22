@@ -96,32 +96,70 @@ class HybridRetriever:
                  domain_rerank: bool = True) -> RetrievalResult:
         log_stage(log, "retrieve.query", f"Q = {query!r}", query=query)
 
-        # (1) dense
+        # PER-SOURCE retrieval — avoids the centroid-pull pathology where
+        # MiniLM query vectors drift toward the 615 near-duplicate election
+        # rows (which share a prefix and schema) at the expense of the
+        # longer, more varied budget PDF paragraphs. By running the full
+        # dense+sparse+RRF+domain-rerank pipeline INDEPENDENTLY per source
+        # and then merging, we guarantee every source is represented in
+        # the candidate pool before the final ranking decides which
+        # chunks win on merit.
         q_vec = self.embedder.encode(query)
-        dense_hits = self.vs.search(q_vec, top_k=pool,
-                                    min_score=0.0)          # keep all for fusion
-        # (2) sparse
-        sparse_hits = self.bm25.search(query, top_k=pool)
+        sources = sorted({c.source for c in self.vs.chunks})
+        per_source_pool = max(pool, top_k * 2)   # wider net per source
 
-        # (3) fuse via RRF
-        fused = self._rrf(dense_hits, sparse_hits, top_k=pool)
+        per_source_results: List[SearchHit] = []
+        for src in sources:
+            # (1) dense, source-filtered
+            dense_src = self.vs.search(q_vec, top_k=per_source_pool,
+                                       min_score=0.0,
+                                       source_filter=src)
+            # (2) sparse, source-filtered via post-filter
+            sparse_all = self.bm25.search(query, top_k=per_source_pool * 3)
+            sparse_src = [h for h in sparse_all if h.chunk.source == src][:per_source_pool]
+            # Re-rank sparse_src positions since we filtered after
+            for r, h in enumerate(sparse_src):
+                h.rank = r
 
-        # (4) domain re-rank (Part-G innovation — imported lazily)
-        if domain_rerank:
-            from .innovation import domain_rerank as _dr
-            fused = _dr(query, fused)
+            # (3) fuse per source
+            fused_src = self._rrf(dense_src, sparse_src, top_k=per_source_pool)
 
-        # (4b) source-balancing guard — MiniLM on our corpus is biased
-        # toward the 615 near-duplicate election rows (they share a prefix
-        # and schema, so they cluster tightly in embedding space and
-        # query vectors tend to land closer to that cluster than to the
-        # longer, more varied budget PDF paragraphs).
-        # If the top-k comes out mono-source, promote the single best
-        # chunk from the other source into 2nd place so the LLM at
-        # least sees cross-source evidence when the query is ambiguous.
-        fused = self._enforce_source_balance(fused, top_k=top_k)
+            # (4) domain rerank per source
+            if domain_rerank:
+                from .innovation import domain_rerank as _dr
+                fused_src = _dr(query, fused_src)
 
-        fused = fused[:top_k]
+            per_source_results.append((src, fused_src))
+
+        # (5) Merge with per-source guarantee: take at least ceil(top_k/N)
+        # from each source, then fill remaining slots by global score.
+        n_sources = max(1, len(per_source_results))
+        guaranteed = max(1, top_k // n_sources)
+        selected: List[SearchHit] = []
+        seen_ids = set()
+
+        # First pass: take the guaranteed minimum from each source
+        for src, hits in per_source_results:
+            for h in hits[:guaranteed]:
+                if h.chunk.chunk_id not in seen_ids:
+                    selected.append(h)
+                    seen_ids.add(h.chunk.chunk_id)
+
+        # Second pass: fill remaining slots from the combined pool by score
+        all_hits = [h for _, hits in per_source_results for h in hits]
+        all_hits.sort(key=lambda x: -x.score)
+        for h in all_hits:
+            if len(selected) >= top_k:
+                break
+            if h.chunk.chunk_id not in seen_ids:
+                selected.append(h)
+                seen_ids.add(h.chunk.chunk_id)
+
+        # Final sort: keep guaranteed slots but present in score order
+        selected.sort(key=lambda x: -x.score)
+        for r, h in enumerate(selected):
+            h.rank = r
+        fused = selected[:top_k]
 
         # (5) FAILURE-CASE FIX — abstain if nothing is close enough
         rewritten = None

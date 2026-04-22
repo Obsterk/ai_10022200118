@@ -250,7 +250,7 @@ st.markdown("""
   <p>Ask anything about the Ghana election results or the 2025 Budget
      Statement. Every answer is grounded in retrieved passages — no
      hallucinations, no guesswork.</p>
-  <p style="font-size:0.75rem;opacity:0.6;margin-top:0.5rem;">build: retrieval-v2 · source-balanced</p>
+  <p style="font-size:0.75rem;opacity:0.6;margin-top:0.5rem;">build: retrieval-v3 · per-source</p>
 </div>
 """, unsafe_allow_html=True)
 
