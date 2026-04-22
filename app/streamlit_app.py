@@ -214,8 +214,16 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 # data loading (cached per session)
 # -----------------------------------------------------------------------------
+# Cache-bust key: bump this string any time the data corpus changes to
+# force Streamlit Cloud to rebuild the pipeline and drop any previously
+# cached version. On a cold container this is a no-op; on a hot-reloaded
+# container it ensures a stale cached pipeline (e.g. one built from the
+# 30-row sample before we shipped the full corpus) is evicted.
+_CORPUS_VERSION = "data-v1-full-corpus-837"
+
+
 @st.cache_resource(show_spinner="Building RAG index (first run only)…")
-def _build_pipeline() -> RAGPipeline:
+def _build_pipeline(corpus_version: str = _CORPUS_VERSION) -> RAGPipeline:
     chunk_cache = PROCESSED / "chunks.jsonl"
 
     if chunk_cache.exists():
@@ -237,7 +245,7 @@ def _build_pipeline() -> RAGPipeline:
     return RAGPipeline(chunks, prompt_variant="guarded+cot")
 
 
-pipeline = _build_pipeline()
+pipeline = _build_pipeline(_CORPUS_VERSION)
 total_chunks = len(pipeline.chunks) if hasattr(pipeline, "chunks") else 0
 
 
