@@ -111,6 +111,16 @@ class HybridRetriever:
             from .innovation import domain_rerank as _dr
             fused = _dr(query, fused)
 
+        # (4b) source-balancing guard — MiniLM on our corpus is biased
+        # toward the 615 near-duplicate election rows (they share a prefix
+        # and schema, so they cluster tightly in embedding space and
+        # query vectors tend to land closer to that cluster than to the
+        # longer, more varied budget PDF paragraphs).
+        # If the top-k comes out mono-source, promote the single best
+        # chunk from the other source into 2nd place so the LLM at
+        # least sees cross-source evidence when the query is ambiguous.
+        fused = self._enforce_source_balance(fused, top_k=top_k)
+
         fused = fused[:top_k]
 
         # (5) FAILURE-CASE FIX — abstain if nothing is close enough
@@ -146,8 +156,19 @@ class HybridRetriever:
     # ---------------------------------------------------------------- helpers
     @staticmethod
     def _rrf(dense: List[SearchHit], sparse: List[SearchHit],
-             top_k: int, k_const: int = settings.rrf_k) -> List[SearchHit]:
-        """Reciprocal-Rank-Fusion — rank-only, scale invariant."""
+             top_k: int, k_const: int = settings.rrf_k,
+             sparse_weight: float = 1.5) -> List[SearchHit]:
+        """Weighted Reciprocal-Rank-Fusion.
+
+        BM25 gets a higher weight (1.5×) than dense. Rationale: dense
+        retrieval on this corpus suffers from a centroid-pull pathology —
+        the 615 election rows share a prefix and schema, so they form a
+        tight cluster that query vectors drift toward, even for queries
+        about budget content. BM25 doesn't have this problem: it correctly
+        scores budget chunks highly for queries like "inflation" or "GDP".
+        Weighting sparse > dense lets the stage that's actually right
+        win more often.
+        """
         table = {}
         by_id = {}
         for h in dense:
@@ -156,12 +177,42 @@ class HybridRetriever:
             by_id[cid] = h
         for h in sparse:
             cid = h.chunk.chunk_id
-            table[cid] = table.get(cid, 0.0) + 1.0 / (k_const + h.rank + 1)
+            table[cid] = table.get(cid, 0.0) + sparse_weight / (k_const + h.rank + 1)
             by_id.setdefault(cid, h)
 
         merged = sorted(table.items(), key=lambda x: -x[1])[:top_k]
         return [SearchHit(chunk=by_id[cid].chunk, score=score, rank=r)
                 for r, (cid, score) in enumerate(merged)]
+
+    @staticmethod
+    def _enforce_source_balance(hits: List[SearchHit],
+                                 top_k: int) -> List[SearchHit]:
+        """Guarantee cross-source representation in top-k when available.
+
+        If the naive top-k comes out mono-source (all election_csv or all
+        budget_pdf) but the *second* source has at least one hit in the
+        wider pool, swap the lowest-ranked mono-source hit for the best
+        other-source hit. This ensures the LLM sees cross-source evidence
+        even when one stage (usually dense) is biased by corpus imbalance.
+        """
+        if not hits or top_k <= 1:
+            return hits
+        top = hits[:top_k]
+        top_sources = {h.chunk.source for h in top}
+        if len(top_sources) > 1:
+            return hits  # already balanced — nothing to do
+        # top is mono-source — find the best hit from the other source
+        mono = next(iter(top_sources))
+        other_candidates = [h for h in hits[top_k:] if h.chunk.source != mono]
+        if not other_candidates:
+            return hits  # no other-source hits at all — can't balance
+        # Swap the weakest top hit for the strongest other-source hit
+        best_other = other_candidates[0]
+        rebalanced = top[:-1] + [best_other] + hits[top_k:]
+        # re-rank positions for display
+        for r, h in enumerate(rebalanced):
+            h.rank = r
+        return rebalanced
 
     # ------------------------ Query rewrite (failure-case fix) --------------
     @staticmethod
