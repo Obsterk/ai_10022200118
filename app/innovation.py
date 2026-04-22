@@ -40,12 +40,25 @@ _FEEDBACK_FILE = Path(settings.log_file).parent.parent / "data" / "processed" / 
 
 
 def _domain_density(text: str) -> float:
-    """Fraction of tokens that are in our domain lexicon (bounded at 1)."""
+    """Length-independent domain-relevance score.
+
+    Earlier versions used `hits / len(tokens)` which systematically favoured
+    short, keyword-dense CSV rows (which by construction contain many domain
+    terms in ~15 tokens) over long PDF paragraphs (which contain the same few
+    terms diluted across ~500 tokens). The result was that election rows were
+    always boosted far more than budget chunks regardless of the query.
+
+    Fix: use an absolute hit count with sqrt saturation, so each additional
+    keyword contributes diminishing returns and chunk length is irrelevant.
+    A chunk with 9+ domain hits saturates at 1.0.
+    """
     toks = text.lower().split()
     if not toks:
         return 0.0
     hits = sum(1 for t in toks if t.strip(",.;:()%") in _DOMAIN_TERMS)
-    return min(hits / max(len(toks), 1) * 10, 1.0)  # scaled so a few hits matter
+    if hits == 0:
+        return 0.0
+    return min((hits / 9.0) ** 0.5, 1.0)
 
 
 def _query_overlap(query: str, chunk_text: str) -> float:

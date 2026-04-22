@@ -77,7 +77,7 @@ class Settings:
         "constituency", "votes", "polling", "budget", "gdp", "cedi", "mofep",
         "inflation", "tax", "revenue", "expenditure", "deficit", "policy",
     ])
-    domain_boost_weight: float = 0.08
+    domain_boost_weight: float = 0.03    # calibrated against RRF score magnitudes (~0.03) so the prior boost nudges ranking without dominating retrieval evidence
 
     # Logging ---------------------------------------------------------------
     log_level : str = os.getenv("LOG_LEVEL", "INFO")
