@@ -133,18 +133,22 @@ Verified — `requirements.txt` contains **no** langchain, llama_index, haystack
 
 ## 7. Evaluation results
 
-Aggregate scores produced by `scripts/run_evaluation.py` over the Part-E test suite (adversarial + RAG-vs-pure-LLM):
+Aggregate scores produced by `scripts/run_evaluation.py` over the Part-E test suite (2 factual + 2 adversarial queries from `evaluator.GROUND_TRUTH`), run on 2026-04-22:
 
 | Metric | RAG (this system) | Pure LLM baseline |
 |---|---|---|
-| Accuracy (grounded answers) | _TBD_ | _TBD_ |
-| Hallucination rate | _TBD_ | _TBD_ |
-| Abstention on OOD queries | _TBD_ | _TBD_ |
-| Citation correctness | _TBD_ | — |
-| Mean answer latency (s) | _TBD_ | _TBD_ |
+| Accuracy (strict keyword match) | **0.500** | 0.500 |
+| Hallucination rate (token-level) | **0.071** | 0.437 |
+| Abstention rate on OOD queries | 0.000 | — |
+| Consistency (σ answer words) | 0.000 | 0.000 |
+| Citation correctness (manual spot-check) | all 4 RAG answers include `[#n]` tags | — |
+
+**Headline finding:** the RAG system cuts the hallucination rate ~6× (0.437 → 0.071). Accuracy ties on this small suite because the two factual queries are keyword-easy for both systems, and both systems fail the two adversarial checks for *different* reasons — the pure LLM fabricates content, while RAG produces soft refusals that don't match the exact `"don't have enough information"` keyword the evaluator looks for. The near-zero RAG hallucination score on the two adversarial queries confirms that RAG refuses rather than inventing.
+
+**Honest caveats:** `consistency_runs=1` on this run (OpenRouter free-tier quota), so σ is trivially 0.0. `min_similarity=0.05` is too lenient — follow-up is to raise it to 0.15 and enforce the canonical refusal string via post-generation regex so `rag_abstained` flips to `True` on both adversarial queries. Latency is not captured in `eval_results.json` this run; single-query latency is logged in `logs/rag_pipeline.log`.
 
 Full machine-readable dump: [`experiment_logs/eval_results.json`](experiment_logs/eval_results.json).
-Full discussion: [`experiment_logs/rag_vs_pure_llm.md`](experiment_logs/rag_vs_pure_llm.md).
+Full discussion and per-query breakdown: [`experiment_logs/rag_vs_pure_llm.md`](experiment_logs/rag_vs_pure_llm.md).
 
 ## 8. Screenshots
 
